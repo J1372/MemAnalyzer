@@ -12,11 +12,16 @@ bool running = true;
 
 std::string cur_where_type = "i";
 
-void print_val(auto val)
+template <typename T>
+void print_val(T val)
 {
-    std::cout << val << "\t( ";
-    print_hex(val);
-    std::cout << " )";
+    std::cout << val;
+    if constexpr(std::is_integral_v<T>)
+    {
+        std::cout << "\t( ";
+        print_hex(val);
+        std::cout << " )";
+    }
 }
 
 void print_addresses(std::span<const std::uintptr_t> addresses)

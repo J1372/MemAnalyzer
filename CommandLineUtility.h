@@ -29,20 +29,16 @@ namespace CommandLineUtility
         return store;
     }
 
-    void print_hex(auto num) // print in hex if possible.
+    template <typename T>
+    void print_hex(T num) // print in hex if possible.
     {
-        if constexpr(std::is_integral_v<decltype(num)>)
-        {
-            std::cout << "0x" << std::hex; // manual 0x printing because showbase does not do so when num = 0.
-            auto cast_to_unsigned = static_cast<std::make_unsigned_t<decltype(num)>>(num); // cast num to unsigned equivalent  (necessary to prevent sign propagation).
-            auto cast_to_size_t = static_cast<std::size_t>(cast_to_unsigned); // cast to size_t (necessary for printing 'char' and 'unsigned char' in hex).
-            std::cout << cast_to_size_t;
-            std::cout << std::dec;
-        }
-        else
-        {
-            std::cout << num;
-        }
+        static_assert(std::is_integral_v<T>, "Num must be an integer.");
+
+        std::cout << "0x" << std::hex; // manual 0x printing because showbase does not do so when num = 0.
+        auto cast_to_unsigned = static_cast<std::make_unsigned_t<decltype(num)>>(num); // cast num to unsigned equivalent  (necessary to prevent sign propagation).
+        auto cast_to_size_t = static_cast<std::size_t>(cast_to_unsigned); // cast to size_t (necessary for printing 'char' and 'unsigned char' in hex).
+        std::cout << cast_to_size_t;
+        std::cout << std::dec;
     }
 
     inline std::vector<std::string_view> tokenize_string(std::string_view string, char delimiter)
