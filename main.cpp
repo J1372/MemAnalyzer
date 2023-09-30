@@ -16,6 +16,7 @@ template <typename T>
 void print_val(T val)
 {
     std::cout << val;
+    // If the value is an int, additionally print out a hex representation.
     if constexpr(std::is_integral_v<T>)
     {
         std::cout << "\t( ";
@@ -68,11 +69,11 @@ void handle_where_became(Scanner& scanner, ArgList args)
     }
     else if (cur_where_type == "f")
     {
-        print_addresses_and_new_vals(scanner, string_view_convert<std::strtof>(val));
+        print_addresses_and_new_vals(scanner, lexical_cast<float>(val));
     }
     else if (cur_where_type == "d")
     {
-        print_addresses_and_new_vals(scanner, string_view_convert<std::strtod>(val));
+        print_addresses_and_new_vals(scanner, lexical_cast<double>(val));
     }
     else if (cur_where_type == "c")
     {
@@ -137,11 +138,11 @@ void handle_where(Scanner& scanner, ArgList args)
         }
         else if (cur_where_type == "f")
         {
-            addresses = scanner.where_val(string_view_convert<std::strtof>(val));
+            addresses = scanner.where_val(lexical_cast<float>(val));
         }
         else if (cur_where_type == "d")
         {
-            addresses = scanner.where_val(string_view_convert<std::strtod>(val));
+            addresses = scanner.where_val(lexical_cast<double>(val));
         }
         else if (cur_where_type == "c")
         {

@@ -29,6 +29,38 @@ namespace CommandLineUtility
         return store;
     }
 
+    template <>
+    float lexical_cast<float>(std::string_view str)
+    {
+        char* end;
+        auto val = std::strtof(str.data(), &end);
+
+        if (end != str.end())
+        {
+            throw std::runtime_error("Could not convert string view.");
+        }
+        else
+        {
+            return val;
+        }
+    }
+
+    template <>
+    double lexical_cast<double>(std::string_view str)
+    {
+        char* end;
+        auto val = std::strtod(str.data(), &end);
+
+        if (end != str.end())
+        {
+            throw std::runtime_error("Could not convert string view.");
+        }
+        else
+        {
+            return val;
+        }
+    }
+
     template <typename T>
     void print_hex(T num) // print in hex if possible.
     {
@@ -77,22 +109,6 @@ namespace CommandLineUtility
         }
 
         return tokens;
-    }
-
-    template<auto F>
-    auto string_view_convert(std::string_view view) -> decltype(F(std::declval<char*>(), std::declval<char**>()))
-    {
-        char* end;
-        auto val = std::invoke(F, view.data(), &end);
-
-        if (end != view.end())
-        {
-            throw std::runtime_error("Could not convert string view.");
-        }
-        else
-        {
-            return val;
-        }
     }
 
 }
