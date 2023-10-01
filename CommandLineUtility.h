@@ -30,7 +30,7 @@ namespace CommandLineUtility
     }
 
     template <>
-    float lexical_cast<float>(std::string_view str)
+    inline float lexical_cast<float>(std::string_view str)
     {
         char* end;
         auto val = std::strtof(str.data(), &end);
@@ -46,7 +46,7 @@ namespace CommandLineUtility
     }
 
     template <>
-    double lexical_cast<double>(std::string_view str)
+    inline double lexical_cast<double>(std::string_view str)
     {
         char* end;
         auto val = std::strtod(str.data(), &end);

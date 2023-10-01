@@ -12,6 +12,43 @@ bool running = true;
 
 std::string cur_where_type = "i";
 
+using ValueType = std::variant<int8_t, int16_t, int32_t, int64_t, uint8_t, uint16_t, uint32_t, uint64_t, float, double>;
+
+ValueType convert_value(std::string_view val, std::string_view type)
+{
+    static const std::unordered_map<std::string_view, std::function<ValueType(std::string_view)>> conv_map
+    {
+        {"c", lexical_cast<int8_t>},
+        {"s", lexical_cast<int16_t>},
+        {"l", lexical_cast<int64_t>},
+        {"f", lexical_cast<float>},
+        {"d", lexical_cast<double>},
+        {"uc", lexical_cast<uint8_t>},
+        {"us", lexical_cast<uint16_t>},
+        {"u", lexical_cast<uint32_t>},
+        {"ui", lexical_cast<uint32_t>},
+        {"ul", lexical_cast<uint64_t>},
+    };
+
+    auto conversion_function_it = conv_map.find(type);
+
+    if (conversion_function_it != conv_map.end())
+    {
+        auto& conversion_function = conversion_function_it->second;
+        return conversion_function(val);
+    }
+    else
+    {
+        return lexical_cast<int32_t>(val); // default to int if type not in map.
+    }
+}
+
+ValueType convert_type(std::string_view type)
+{
+    // Since we only care about type, return a convert_value call on a dummy value.
+    return convert_value("0", type);
+}
+
 template <typename T>
 void print_val(T val)
 {
@@ -37,69 +74,29 @@ void print_addresses(std::span<const std::uintptr_t> addresses)
 
 void handle_where_became(Scanner& scanner, ArgList args)
 {
-    auto print_addresses_and_new_vals = []<typename T>(Scanner& scanner, T val)
-    {
-        std::span<const std::uintptr_t> addresses = scanner.where_became(val);
-
-        for (std::uintptr_t address : addresses)
-        {
-            print_hex(address);
-            std::cout << " => ";
-            print_val(*scanner.read_mem<T>(address));
-            std::cout << '\n';
-        }
-
-        std::cout << "Addresses: " << addresses.size() << '\n';
-    };
-
     if (args.empty())
     {
         return;
     }
 
-    auto val = args.front();
+    auto val_str = args.front();
+    ValueType val = convert_value(val_str, cur_where_type);
 
-    if (cur_where_type == "s")
+    std::visit([&scanner](auto&& val)
     {
-        print_addresses_and_new_vals(scanner, lexical_cast<int16_t>(val));
-    }
-    else if (cur_where_type == "l")
-    {
-        print_addresses_and_new_vals(scanner, lexical_cast<int64_t>(val));
-    }
-    else if (cur_where_type == "f")
-    {
-        print_addresses_and_new_vals(scanner, lexical_cast<float>(val));
-    }
-    else if (cur_where_type == "d")
-    {
-        print_addresses_and_new_vals(scanner, lexical_cast<double>(val));
-    }
-    else if (cur_where_type == "c")
-    {
-        print_addresses_and_new_vals(scanner, lexical_cast<int8_t>(val));
-    }
-    else if (cur_where_type == "u" or cur_where_type == "ui")
-    {
-        print_addresses_and_new_vals(scanner, lexical_cast<uint32_t>(val));
-    }
-    else if (cur_where_type == "us")
-    {
-        print_addresses_and_new_vals(scanner, lexical_cast<uint16_t>(val));
-    }
-    else if (cur_where_type == "ul")
-    {
-        print_addresses_and_new_vals(scanner, lexical_cast<uint64_t>(val));
-    }
-    else if (cur_where_type == "uc")
-    {
-        print_addresses_and_new_vals(scanner, lexical_cast<uint8_t>(val));
-    }
-    else
-    {
-        // default to int 4 bytes
-        print_addresses_and_new_vals(scanner, lexical_cast<int32_t>(val));
-    }
+       using T = std::decay_t<decltype(val)>;
+       std::span<const std::uintptr_t> addresses = scanner.where_became(val);
+
+       for (std::uintptr_t address : addresses)
+       {
+           print_hex(address);
+           std::cout << " => ";
+           print_val(*scanner.read_mem<T>(address));
+           std::cout << '\n';
+       }
+
+       std::cout << "Addresses: " << addresses.size() << '\n';
+    }, val);
 }
 
 void handle_where(Scanner& scanner, ArgList args)
@@ -125,51 +122,15 @@ void handle_where(Scanner& scanner, ArgList args)
     {
         // Use type if provided, default to int (4 byte int).
         cur_where_type = args.size() > 1 ? args[1] : "i";
-        std::string_view val = args.front();
+        std::string_view val_str = args.front();
 
-        std::span<const std::uintptr_t> addresses;
-        if (cur_where_type == "s")
-        {
-            addresses = scanner.where_val(lexical_cast<int16_t>(val));
-        }
-        else if (cur_where_type == "l")
-        {
-            addresses = scanner.where_val(lexical_cast<int64_t>(val));
-        }
-        else if (cur_where_type == "f")
-        {
-            addresses = scanner.where_val(lexical_cast<float>(val));
-        }
-        else if (cur_where_type == "d")
-        {
-            addresses = scanner.where_val(lexical_cast<double>(val));
-        }
-        else if (cur_where_type == "c")
-        {
-            addresses = scanner.where_val(lexical_cast<int8_t>(val));
-        }
-        else if (cur_where_type == "u" or cur_where_type == "ui")
-        {
-            addresses = scanner.where_val(lexical_cast<uint32_t>(val));
-        }
-        else if (cur_where_type == "us")
-        {
-            addresses = scanner.where_val(lexical_cast<uint16_t>(val));
-        }
-        else if (cur_where_type == "ul")
-        {
-            addresses = scanner.where_val(lexical_cast<uint64_t>(val));
-        }
-        else if (cur_where_type == "uc")
-        {
-            addresses = scanner.where_val(lexical_cast<uint8_t>(val));
-        }
-        else
-        {
-            addresses = scanner.where_val(lexical_cast<int32_t>(val));
-        }
+        ValueType val = convert_value(val_str, cur_where_type);
 
-        print_addresses(addresses);
+        std::visit([&scanner](auto&& val)
+        {
+            std::span<const std::uintptr_t> addresses = scanner.where_val(val);
+            print_addresses(addresses);
+        }, val);
     }
 
     std::cout << "Finished.\n";
@@ -237,8 +198,14 @@ void handle_pointer_scan(Scanner& scanner, ArgList args)
 
     auto offset = lexical_cast<std::uintptr_t>(str_address);
 
-    auto print_pointers = []<typename T>(Scanner& scanner, std::uintptr_t offset, int range)
+    std::cout << "Scanning...\n";
+
+    ValueType type = convert_type(opt_type);
+
+    std::visit([&scanner, offset, range](auto&& type)
     {
+        using T = std::decay_t<decltype(type)>;
+
         std::uintptr_t start = offset - (range - 1) * sizeof(T);
         std::uintptr_t end = offset + sizeof(T);
 
@@ -249,51 +216,7 @@ void handle_pointer_scan(Scanner& scanner, ArgList args)
             auto pointer_map = scanner.scan_pointers_to(i);
             print_pointer_map(pointer_map, i, 1);
         }
-    };
-
-    std::cout << "Scanning...\n";
-
-    if (opt_type == "s")
-    {
-        print_pointers.operator()<int16_t>(scanner, offset, range);
-    }
-    else if (opt_type == "l")
-    {
-        print_pointers.operator()<int64_t>(scanner, offset, range);
-    }
-    else if (opt_type == "f")
-    {
-        print_pointers.operator()<float>(scanner, offset, range);
-    }
-    else if (opt_type == "d")
-    {
-        print_pointers.operator()<double>(scanner, offset, range);
-    }
-    else if (opt_type == "c")
-    {
-        print_pointers.operator()<int8_t>(scanner, offset, range);
-    }
-    else if (opt_type == "u" or opt_type == "ui")
-    {
-        print_pointers.operator()<uint32_t>(scanner, offset, range);
-    }
-    else if (opt_type == "us")
-    {
-        print_pointers.operator()<uint16_t>(scanner, offset, range);
-    }
-    else if (opt_type == "ul")
-    {
-        print_pointers.operator()<uint64_t>(scanner, offset, range);
-    }
-    else if (opt_type == "uc")
-    {
-        print_pointers.operator()<uint8_t>(scanner, offset, range);
-    }
-    else
-    {
-        // default to int 4 bytes
-        print_pointers.operator()<int32_t>(scanner, offset, range);
-    }
+    }, type);
 
     std::cout << "Finished.\n";
 }
@@ -308,16 +231,25 @@ void handle_scan(Scanner& scanner, ArgList args)
     std::string_view str_address = args[0];
     std::string_view opt_type = args.size() == 1 ? "i" : args[1];
     int num_elements = args.size() == 3 ? lexical_cast<int>(args[2]) : 1;
+    auto offset = lexical_cast<std::uintptr_t>(str_address);
+
+    if (opt_type == "t")
+    {
+        std::cout << scanner.read_string(offset) << '\n';
+        return;
+    }
 
     if (num_elements == 0)
     {
         return;
     }
 
-    auto offset = lexical_cast<std::uintptr_t>(str_address);
+    ValueType type = convert_type(opt_type);
 
-    auto print_val_address = []<typename T>(Scanner& scanner, std::uintptr_t offset, int num_elements)
+    std::visit([&scanner, offset, num_elements](auto&& type) mutable
     {
+        using T = std::decay_t<decltype(type)>;
+
         if (num_elements < 0)
         {
             num_elements = -num_elements;
@@ -346,62 +278,17 @@ void handle_scan(Scanner& scanner, ArgList args)
 
             std::cout << "\n";
         }
-    };
-
-    if (opt_type == "s")
-    {
-        print_val_address.operator()<int16_t>(scanner, offset, num_elements);
-    }
-    else if (opt_type == "l")
-    {
-        print_val_address.operator()<int64_t>(scanner, offset, num_elements);
-    }
-    else if (opt_type == "f")
-    {
-        print_val_address.operator()<float>(scanner, offset, num_elements);
-    }
-    else if (opt_type == "d")
-    {
-        print_val_address.operator()<double>(scanner, offset, num_elements);
-    }
-    else if (opt_type == "c")
-    {
-        print_val_address.operator()<int8_t>(scanner, offset, num_elements);
-    }
-    else if (opt_type == "u" or opt_type == "ui")
-    {
-        print_val_address.operator()<uint32_t>(scanner, offset, num_elements);
-    }
-    else if (opt_type == "us")
-    {
-        print_val_address.operator()<uint16_t>(scanner, offset, num_elements);
-    }
-    else if (opt_type == "ul")
-    {
-        print_val_address.operator()<uint64_t>(scanner, offset, num_elements);
-    }
-    else if (opt_type == "uc")
-    {
-        print_val_address.operator()<uint8_t>(scanner, offset, num_elements);
-    }
-    else if (opt_type == "t")
-    {
-        std::cout << scanner.read_string(offset) << '\n';
-    }
-    else
-    {
-        // default to int 4 bytes
-        print_val_address.operator()<int32_t>(scanner, offset, num_elements);
-    }
-
+    }, type);
 }
 
 
 void handle_where_changed(Scanner& scanner, ArgList args)
 {
-    //handle all change
-    auto print_addresses_with_changes = []<typename T>(Scanner& scanner)
+    ValueType type = convert_type(cur_where_type);
+    std::visit([&scanner](auto&& type)
     {
+        using T = std::decay_t<decltype(type)>;
+
         auto prev_val = scanner.get_where_chain_val<T>();
         std::span<const std::uintptr_t> addresses = scanner.where_changed<T>();
         for (const auto change : addresses)
@@ -410,49 +297,7 @@ void handle_where_changed(Scanner& scanner, ArgList args)
             std::cout << " : " << prev_val << "\t->\t" << *scanner.read_mem<T>(change) << '\n';
         }
         std::cout << "Addresses changed: " << addresses.size() << '\n';
-    };
-
-    if (cur_where_type == "s")
-    {
-        print_addresses_with_changes.operator()<int16_t>(scanner);
-    }
-    else if (cur_where_type == "l")
-    {
-        print_addresses_with_changes.operator()<int64_t>(scanner);
-    }
-    else if (cur_where_type == "f")
-    {
-        print_addresses_with_changes.operator()<float>(scanner);
-    }
-    else if (cur_where_type == "d")
-    {
-        print_addresses_with_changes.operator()<double>(scanner);
-    }
-    else if (cur_where_type == "c")
-    {
-        print_addresses_with_changes.operator()<int8_t>(scanner);
-    }
-    else if (cur_where_type == "u" or cur_where_type == "ui")
-    {
-        print_addresses_with_changes.operator()<uint32_t>(scanner);
-    }
-    else if (cur_where_type == "us")
-    {
-        print_addresses_with_changes.operator()<uint16_t>(scanner);
-    }
-    else if (cur_where_type == "ul")
-    {
-        print_addresses_with_changes.operator()<uint64_t>(scanner);
-    }
-    else if (cur_where_type == "uc")
-    {
-        print_addresses_with_changes.operator()<uint8_t>(scanner);
-    }
-    else
-    {
-        // default to int 4 bytes
-        print_addresses_with_changes.operator()<int32_t>(scanner);
-    }
+    }, type);
 }
 
 void print_help_message(Scanner& scanner, ArgList args)
