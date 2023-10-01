@@ -3,6 +3,7 @@
 #include <span>
 #include "Scanner/Scanner.h"
 #include "CommandLineUtility.h"
+#include <optional>
 
 using namespace CommandLineUtility;
 
@@ -62,6 +63,19 @@ void print_val(T val)
     }
 }
 
+template <typename T>
+void print_val(const std::optional<T>& val)
+{
+    if (val)
+    {
+        print_val(*val);
+    }
+    else
+    {
+        std::cout << "Inaccessible";
+    }
+}
+
 void print_addresses(std::span<const std::uintptr_t> addresses)
 {
     for (auto address : addresses)
@@ -91,7 +105,7 @@ void handle_where_became(Scanner& scanner, ArgList args)
        {
            print_hex(address);
            std::cout << " => ";
-           print_val(*scanner.read_mem<T>(address));
+           print_val(scanner.read_mem<T>(address));
            std::cout << '\n';
        }
 
@@ -294,7 +308,9 @@ void handle_where_changed(Scanner& scanner, ArgList args)
         for (const auto change : addresses)
         {
             print_hex(change);
-            std::cout << " : " << prev_val << "\t->\t" << *scanner.read_mem<T>(change) << '\n';
+            std::cout << " : " << prev_val << "\t->\t";
+            print_val(scanner.read_mem<T>(change));
+            std::cout << '\n';
         }
         std::cout << "Addresses changed: " << addresses.size() << '\n';
     }, type);

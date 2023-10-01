@@ -50,9 +50,7 @@ class Scanner
             std::unique_ptr<T[]> buf = read_array<T>(page.start(), num_elements);
 
             if (!buf)
-            {
                 continue;
-            }
 
             for (std::size_t i = 0; i < num_elements; ++i)
             {
@@ -276,6 +274,9 @@ public:
             // otherwise, call read_to_buf.
             std::unique_ptr<char[]> buf = read_array<char>(page.start(), page.size());
 
+            if (!buf)
+                continue;
+
             for (std::size_t offset = 0; offset + str.length() <= page.size(); ++offset)
             {
                 std::string_view view { buf.get() + offset, str.length() };
@@ -312,8 +313,8 @@ public:
 
         for (std::uintptr_t address : cur_where_addresses)
         {
-            auto cur_val = *read_mem<T>(address);
-            if (eq_vals(cur_val, val))
+            auto cur_val = read_mem<T>(address);
+            if (cur_val and eq_vals(*cur_val, val))
             {
                 addresses.push_back(address);
             }
@@ -333,8 +334,8 @@ public:
         auto prev_val = cur_where_val.get<T>();
         for (std::uintptr_t address : cur_where_addresses)
         {
-            auto cur_val = *read_mem<T>(address);
-            if (!eq_vals(prev_val, cur_val))
+            auto cur_val = read_mem<T>(address);
+            if (cur_val and !eq_vals(prev_val, *cur_val))
             {
                 addresses.push_back(address);
             }
