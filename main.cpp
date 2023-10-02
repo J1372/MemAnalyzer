@@ -153,23 +153,27 @@ void handle_where(Scanner& scanner, ArgList args)
 void handle_possible_pointer(Scanner& scanner, std::uintptr_t possible_pointer)
 {
     constexpr int num_elements = 8;
-    auto try_to_read = scanner.read_array<char>(possible_pointer, num_elements);
+    auto relative_pointer = scanner.get_relative_address(possible_pointer);
+    auto try_to_read = scanner.read_array<char>(relative_pointer, num_elements);
 
     if (try_to_read)
     {
-        // We were able to deref possible_pointer, print the read memory.
-        std::cout << " -> *(";
-        // find first null char. it -> 1st null char or end of array;
-        auto it = std::find(try_to_read.get(), try_to_read.get() + num_elements, '\0');
-
-        auto is_printable = [](char byte){ return std::isprint(byte); };
-        if (std::all_of(try_to_read.get(), it, is_printable))
-        {
-            // interpret as string, print first few chars of that string.
-            std::string_view str { try_to_read.get(), static_cast<std::size_t>(std::distance(try_to_read.get(), it)) };
-            std::cout << str;
-        }
+        // We were able to deref possible_pointer, indicate that it is a pointer and the relative address.
+        std::cout << " => (relative: ";
+        print_hex(relative_pointer);
         std::cout << ")";
+
+        // If dereferences to a possible string, print it.
+        auto is_printable = [](unsigned char byte){ return std::isprint(byte); };
+        auto end_printable = std::find_if_not(try_to_read.get(), try_to_read.get() + num_elements, is_printable);
+        std::size_t num_printable_chars = end_printable - try_to_read.get();
+        if (num_printable_chars > 0)
+        {
+            std::string_view str { try_to_read.get(), num_printable_chars };
+            std::cout << " -> *(";
+            std::cout << str;
+            std::cout << ")";
+        }
     }
     else
     {
@@ -402,7 +406,6 @@ std::unordered_map<std::string_view, Command> construct_command_map()
 
                     {"pointers", handle_pointer_scan},
                     {"p", handle_pointer_scan},
-
 
                     {"help", print_help_message},
                     {"h", print_help_message},
